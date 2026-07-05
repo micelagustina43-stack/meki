@@ -203,6 +203,7 @@ async def callback_handler(client, query):
     elif data.startswith("actmenu_"):
         name = data.split("_", 1)[1]
         buttons = [
+            [InlineKeyboardButton("ℹ️ Lihat Detail Akun", callback_data=f"detailact_{name}")], # TOMBOL BARU DITAMBAHKAN
             [InlineKeyboardButton("💬 Cek Chat Akun", callback_data=f"chatact_{name}")],
             [InlineKeyboardButton("🛑 Terminate Device Lain", callback_data=f"termact_{name}")],
             [InlineKeyboardButton("❌ Hapus Akun dari Database", callback_data=f"delact_{name}")],
@@ -210,6 +211,40 @@ async def callback_handler(client, query):
         ]
         await query.message.edit(f"👤 **Kelola Akun: {name}**\nPilih aksi yang ingin dilakukan:", reply_markup=InlineKeyboardMarkup(buttons))
         
+    # --- LOGIKA TOMBOL LIHAT DETAIL AKUN ---
+    elif data.startswith("detailact_"):
+        name = data.split("_", 1)[1]
+        doc = await get_user_doc(user_id)
+        session = doc.get("accounts", {}).get(name)
+        
+        if not session:
+            return await query.answer("❌ Sesi tidak ditemukan di database.", show_alert=True)
+            
+        await query.message.edit("🔄 Sedang menarik informasi akun dari Telegram...")
+        
+        try:
+            user_client = Client(f"tmp_{user_id}", session_string=session, api_id=API_ID, api_hash=API_HASH, in_memory=True)
+            await user_client.start()
+            me = await user_client.get_me()
+            await user_client.stop()
+            
+            # Format data agar rapi jika ada yang kosong
+            phone = f"+{me.phone_number}" if me.phone_number else "Tidak tersedia"
+            username = f"@{me.username}" if me.username else "Tidak ada"
+            full_name = f"{me.first_name} {me.last_name or ''}".strip()
+            
+            text = (
+                f"ℹ️ **Detail Akun: {name}**\n\n"
+                f"**👤 Nama Lengkap:** {full_name}\n"
+                f"**🆔 User ID:** `{me.id}`\n"
+                f"**🔖 Username:** {username}\n"
+                f"**📱 Nomor HP:** `{phone}`\n"
+            )
+            
+            await query.message.edit(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
+        except Exception as e:
+            await query.message.edit(f"❌ Gagal memuat detail akun: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
+
     elif data.startswith("chatact_"):
         name = data.split("_", 1)[1]
         TEMP_DATA[f"{user_id}_active_account"] = name
