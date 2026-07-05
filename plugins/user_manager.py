@@ -7,10 +7,22 @@ from config import API_ID, API_HASH
 # Dictionary untuk menyimpan client user yang sedang aktif di memori
 active_clients = {}
 
+@Client.on_message(filters.command("start") & filters.private)
+async def start_msg(client, message):
+    await message.reply(
+        "👋 **Halo! Bot telah berjalan.**\n\n"
+        "**Perintah yang tersedia:**\n"
+        "• `/login [String_Session]` - Masuk akun\n"
+        "• `/chats [Username]` - Cek riwayat chat\n"
+        "• `/terminate` - Keluar dari device lain\n"
+        "• `/setdb [URL_Mongo]` - Set DB Sekunder\n"
+        "• `/db` - Akses DB Sekunder"
+    )
+
 @Client.on_message(filters.command("login") & filters.private)
 async def login_session(client, message):
     if len(message.command) < 2:
-        return await message.reply("Gunakan format: `/login <String_Session>`")
+        return await message.reply("Gunakan format: `/login [String_Session]`")
     
     session_string = message.command[1]
     user_id = message.from_user.id
@@ -40,7 +52,7 @@ async def login_session(client, message):
 async def terminate_others(client, message):
     user_id = message.from_user.id
     if user_id not in active_clients:
-        return await message.reply("Anda belum login! Gunakan /login.")
+        return await message.reply("Anda belum login! Gunakan `/login [String_Session]`.")
     
     user_client = active_clients[user_id]
     try:
@@ -53,13 +65,13 @@ async def terminate_others(client, message):
 @Client.on_message(filters.command("chats") & filters.private)
 async def get_target_chats(client, message):
     if len(message.command) < 2:
-        return await message.reply("Gunakan format: `/chats <username_target>`")
+        return await message.reply("Gunakan format: `/chats [username_target]`")
     
     target = message.command[1]
     user_id = message.from_user.id
     
     if user_id not in active_clients:
-        return await message.reply("Anda belum login! Gunakan /login.")
+        return await message.reply("Anda belum login! Gunakan `/login [String_Session]`.")
     
     user_client = active_clients[user_id]
     
