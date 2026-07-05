@@ -2,7 +2,6 @@ import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import PRIMARY_MONGO
 
-# Menggunakan tlsCAFile=certifi.where() untuk mencegah TLS ALERT ERROR
 db_client = AsyncIOMotorClient(PRIMARY_MONGO, tlsCAFile=certifi.where())
 db_main = db_client["NovusDB"]
 users_col = db_main["users"]
@@ -10,7 +9,6 @@ users_col = db_main["users"]
 async def get_user_doc(user_id: int):
     doc = await users_col.find_one({"user_id": user_id})
     if not doc:
-        # Format dasar dokumen jika user baru
         doc = {"user_id": user_id, "accounts": {}, "databases": {}}
         await users_col.insert_one(doc)
     return doc
