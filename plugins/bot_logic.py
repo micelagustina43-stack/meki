@@ -203,7 +203,8 @@ async def callback_handler(client, query):
     elif data.startswith("actmenu_"):
         name = data.split("_", 1)[1]
         buttons = [
-            [InlineKeyboardButton("ℹ️ Lihat Detail Akun", callback_data=f"detailact_{name}")], # TOMBOL BARU DITAMBAHKAN
+            [InlineKeyboardButton("ℹ️ Lihat Detail Akun", callback_data=f"detailact_{name}")],
+            [InlineKeyboardButton("🔑 Dapatkan Kode", callback_data=f"getcode_{name}")],
             [InlineKeyboardButton("💬 Cek Chat Akun", callback_data=f"chatact_{name}")],
             [InlineKeyboardButton("🛑 Terminate Device Lain", callback_data=f"termact_{name}")],
             [InlineKeyboardButton("❌ Hapus Akun dari Database", callback_data=f"delact_{name}")],
@@ -211,7 +212,6 @@ async def callback_handler(client, query):
         ]
         await query.message.edit(f"👤 **Kelola Akun: {name}**\nPilih aksi yang ingin dilakukan:", reply_markup=InlineKeyboardMarkup(buttons))
         
-    # --- LOGIKA TOMBOL LIHAT DETAIL AKUN ---
     elif data.startswith("detailact_"):
         name = data.split("_", 1)[1]
         doc = await get_user_doc(user_id)
@@ -228,7 +228,6 @@ async def callback_handler(client, query):
             me = await user_client.get_me()
             await user_client.stop()
             
-            # Format data agar rapi jika ada yang kosong
             phone = f"+{me.phone_number}" if me.phone_number else "Tidak tersedia"
             username = f"@{me.username}" if me.username else "Tidak ada"
             full_name = f"{me.first_name} {me.last_name or ''}".strip()
@@ -244,6 +243,39 @@ async def callback_handler(client, query):
             await query.message.edit(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
         except Exception as e:
             await query.message.edit(f"❌ Gagal memuat detail akun: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
+
+    # --- LOGIKA TOMBOL DAPATKAN KODE ---
+    elif data.startswith("getcode_"):
+        name = data.split("_", 1)[1]
+        doc = await get_user_doc(user_id)
+        session = doc.get("accounts", {}).get(name)
+        
+        if not session:
+            return await query.answer("❌ Sesi tidak ditemukan di database.", show_alert=True)
+            
+        await query.message.edit("🔄 Memeriksa kotak masuk Telegram (777000)...")
+        
+        try:
+            user_client = Client(f"tmp_{user_id}", session_string=session, api_id=API_ID, api_hash=API_HASH, in_memory=True)
+            await user_client.start()
+            
+            kode_text = "Tidak ada pesan dari Telegram akhir-akhir ini."
+            
+            # 777000 adalah user_id resmi dari notifikasi Telegram
+            async for msg in user_client.get_chat_history(777000, limit=1):
+                kode_text = msg.text or "Pesan yang diterima bukan teks biasa."
+                break
+                
+            await user_client.stop()
+            
+            text = (
+                f"🔑 **Pesan Terbaru Telegram untuk {name}**\n\n"
+                f"`{kode_text}`\n"
+            )
+            
+            await query.message.edit(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
+        except Exception as e:
+            await query.message.edit(f"❌ Gagal menarik kode: {str(e)}\n\n(Catatan: Pastikan akun ini belum diban/dibatasi).", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
 
     elif data.startswith("chatact_"):
         name = data.split("_", 1)[1]
