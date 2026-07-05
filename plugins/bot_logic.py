@@ -6,13 +6,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from database import get_user_doc, update_user_doc
 from config import API_ID, API_HASH
 
-# --- FSM (Finite State Machine) & Cache Memori ---
+print("✅ Plugin bot_logic berhasil dimuat!")
+
 USER_STATE = {}
 TEMP_DATA = {}
 SECONDARY_DB_CLIENTS = {}
 TEMP_CHATS = {}
 
-# --- FUNGSI MENU UTAMA ---
 def get_main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("👥 Kelola Akun Telegram", callback_data="menu_accounts")],
@@ -57,11 +57,9 @@ async def send_db_menu(message_or_query, user_id):
     else:
         await message_or_query.reply(text, reply_markup=markup)
 
-
-# --- HANDLER TEKS / PERINTAH (FSM LISTENER) ---
 @Client.on_message(filters.command("start") & filters.private)
 async def start_msg(client, message):
-    USER_STATE.pop(message.from_user.id, None) # Reset state jika ada
+    USER_STATE.pop(message.from_user.id, None) 
     await message.reply(
         "👋 **Selamat datang di Novus Manager.**\n\n"
         "Semua sistem menggunakan navigasi tombol. Silakan pilih menu di bawah ini:",
@@ -74,7 +72,7 @@ async def state_listener(client, message):
     state = USER_STATE.get(user_id)
     
     if not state:
-        return # Abaikan chat biasa jika tidak sedang dalam proses input data
+        return 
         
     text = message.text
     
@@ -118,8 +116,6 @@ async def state_listener(client, message):
         USER_STATE.pop(user_id, None)
         await process_chat_history(client, message, user_id, account_name, target)
 
-
-# --- LOGIKA USERBOT (CHAT & TERMINATE) ---
 async def process_chat_history(bot_client, message, user_id, account_name, target):
     msg = await message.reply("🔄 Sedang memuat riwayat chat, harap tunggu...")
     doc = await get_user_doc(user_id)
@@ -129,7 +125,6 @@ async def process_chat_history(bot_client, message, user_id, account_name, targe
         return await msg.edit("❌ Sesi tidak ditemukan di database.")
     
     try:
-        # in_memory=True -> Tidak ada file .session untuk userbot
         user_client = Client(f"tmp_{user_id}", session_string=session, api_id=API_ID, api_hash=API_HASH, in_memory=True)
         await user_client.start()
         
@@ -144,7 +139,6 @@ async def process_chat_history(bot_client, message, user_id, account_name, targe
         if not messages:
             return await msg.edit("Tidak ada riwayat chat dengan target tersebut.")
             
-        # Simpan ke cache untuk pagination
         TEMP_CHATS[f"{user_id}_chats"] = messages
         TEMP_DATA[f"{user_id}_chat_target"] = target
         
@@ -181,14 +175,11 @@ async def send_chat_page(bot_client, message_or_query, user_id, page):
     else:
         await message_or_query.reply(text, reply_markup=markup)
 
-
-# --- HANDLER TOMBOL (CALLBACK QUERIES) ---
 @Client.on_callback_query()
 async def callback_handler(client, query):
     data = query.data
     user_id = query.from_user.id
     
-    # Reset FSM state setiap kali tombol ditekan untuk mencegah bug nyangkut
     if USER_STATE.get(user_id):
         USER_STATE.pop(user_id, None)
         
@@ -203,13 +194,12 @@ async def callback_handler(client, query):
         
     elif data == "add_account":
         USER_STATE[user_id] = "wait_account_session"
-        await query.message.edit("📝 **Kirimkan String Session** untuk akun Telegram baru (Pyrogram v1/v2):")
+        await query.message.edit("📝 **Kirimkan String Session** untuk akun Telegram baru:")
         
     elif data == "add_db":
         USER_STATE[user_id] = "wait_db_url"
-        await query.message.edit("📝 **Kirimkan URL MongoDB** (contoh: `mongodb+srv://...`):")
+        await query.message.edit("📝 **Kirimkan URL MongoDB**:")
         
-    # MENU AKSI AKUN
     elif data.startswith("actmenu_"):
         name = data.split("_", 1)[1]
         buttons = [
@@ -224,7 +214,7 @@ async def callback_handler(client, query):
         name = data.split("_", 1)[1]
         TEMP_DATA[f"{user_id}_active_account"] = name
         USER_STATE[user_id] = "wait_chat_target"
-        await query.message.edit(f"📝 **Kirimkan Username/User ID target** untuk mengecek chat menggunakan akun **{name}**:")
+        await query.message.edit(f"📝 **Kirimkan Username/User ID target**:")
         
     elif data.startswith("termact_"):
         name = data.split("_", 1)[1]
@@ -237,7 +227,7 @@ async def callback_handler(client, query):
             await user_client.start()
             await user_client.invoke(functions.auth.ResetAuthorizations())
             await user_client.stop()
-            await query.message.edit(f"✅ **Berhasil!** Semua perangkat lain di akun **{name}** telah dikeluarkan.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
+            await query.message.edit(f"✅ **Berhasil!** Semua perangkat lain telah dikeluarkan.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
         except Exception as e:
             await query.message.edit(f"❌ Gagal: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"actmenu_{name}")]]))
             
@@ -251,12 +241,10 @@ async def callback_handler(client, query):
         await query.answer(f"Akun {name} dihapus!", show_alert=True)
         await send_accounts_menu(query, user_id)
 
-    # PAGINASI CHAT
     elif data.startswith("cpage_"):
         page = int(data.split("_")[1])
         await send_chat_page(client, query, user_id, page)
 
-    # MENU AKSI DATABASE
     elif data.startswith("dbmenu_"):
         name = data.split("_", 1)[1]
         buttons = [
@@ -288,34 +276,29 @@ async def callback_handler(client, query):
         
         try:
             dbs = await client_db.list_database_names()
-            # Otomatis melewati database bawaan sistem mongo (admin/local)
             target_db = next((d for d in dbs if d not in ["admin", "local"]), dbs[0])
             db = client_db[target_db]
             cols = await db.list_collection_names()
             
-            # Simpan list collection ke memory menggunakan index agar payload callback ringan
             TEMP_DATA[f"{user_id}_cols"] = cols 
             TEMP_DATA[f"{user_id}_target_db_name"] = target_db
             
             buttons = [[InlineKeyboardButton(f"📁 {c}", callback_data=f"opencol_{i}")] for i, c in enumerate(cols)]
             buttons.append([InlineKeyboardButton("🔙 Kembali ke Menu DB", callback_data=f"dbmenu_{name}")])
             
-            await query.message.edit(f"🗄️ **Terhubung ke: {name} ({target_db})**\n📂 **Pilih Folder (Collections):**", reply_markup=InlineKeyboardMarkup(buttons))
+            await query.message.edit(f"🗄️ **Terhubung ke: {name} ({target_db})**\n📂 **Pilih Folder:**", reply_markup=InlineKeyboardMarkup(buttons))
         except Exception as e:
             await query.message.edit(f"❌ Error koneksi DB: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data=f"dbmenu_{name}")]]))
             
     elif data.startswith("opencol_") or data.startswith("pgcol_"):
-        # Logika Pagination Dokumen Database
         is_page = data.startswith("pgcol_")
         val = int(data.split("_")[1])
         
         if not is_page:
-            # Jika user klik folder baru
             colname = TEMP_DATA[f"{user_id}_cols"][val]
             TEMP_DATA[f"{user_id}_activecol"] = colname
             page = 0
         else:
-            # Jika user klik next/prev page
             colname = TEMP_DATA[f"{user_id}_activecol"]
             page = val
             
