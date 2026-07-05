@@ -9,7 +9,7 @@ secondary_clients = {}
 @Client.on_message(filters.command("setdb") & filters.private)
 async def set_secondary_db(client, message):
     if len(message.command) < 2:
-        return await message.reply("Gunakan format: `/setdb <URL_MONGO_SEKUNDER>`")
+        return await message.reply("Gunakan format: `/setdb [URL_MONGO_SEKUNDER]`")
     
     db_url = message.command[1]
     user_id = message.from_user.id
@@ -27,7 +27,7 @@ async def view_db_folders(client, message):
     sec_url = await get_user_data(user_id, "sec_db")
     
     if not sec_url:
-        return await message.reply("Anda belum mengatur DB Sekunder. Gunakan /setdb.")
+        return await message.reply("Anda belum mengatur DB Sekunder. Gunakan `/setdb [URL_MONGO_SEKUNDER]`.")
         
     if user_id not in secondary_clients:
         secondary_clients[user_id] = AsyncIOMotorClient(sec_url)
